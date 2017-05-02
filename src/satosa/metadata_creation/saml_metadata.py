@@ -1,6 +1,7 @@
 import copy
 import logging
 from collections import defaultdict
+from hashlib import md5
 
 from saml2.config import Config
 from saml2.metadata import entity_descriptor, entities_descriptor, sign_entity_descriptor
@@ -8,30 +9,65 @@ from saml2.time_util import in_a_while
 from saml2.validate import valid_instance
 
 from ..backends.saml2 import SAMLBackend
+from ..backends.saml2 import SAMLMirrorBackend
 from ..frontends.saml2 import SAMLFrontend
 from ..frontends.saml2 import SAMLMirrorFrontend
+from ..frontends.openid_connect import OpenIDConnectFrontend
 from ..plugin_loader import load_frontends, load_backends
+
+from ..metadata_creation.description import MetadataDescription
+from base64 import urlsafe_b64encode, urlsafe_b64decode
 
 logger = logging.getLogger(__name__)
 
+def md5hash(s):
+    md5hash = urlsafe_b64encode(md5(s.encode('utf-8')).digest()).decode('utf-8')
+    return md5hash
 
 def _create_entity_descriptor(entity_config):
     cnf = Config().load(copy.deepcopy(entity_config), metadata_construction=True)
     return entity_descriptor(cnf)
 
+def _create_backend_metadata(backend_modules, frontend_modules):
+    #backend_metadata = {}
+    backend_metadata = defaultdict(list)
 
-def _create_backend_metadata(backend_modules):
-    backend_metadata = {}
+    for backend in backend_modules:
+        if isinstance(backend, SAMLMirrorBackend):
+            logger.info("Creating SAML backend '%s' metadata", backend.name)
+            logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
+            backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
 
-    for plugin_module in backend_modules:
-        if isinstance(plugin_module, SAMLBackend):
-            logger.info("Generating SAML backend '%s' metadata", plugin_module.name)
-            backend_metadata[plugin_module.name] = [_create_entity_descriptor(plugin_module.config["sp_config"])]
-
+            backend_entityid = backend.config["sp_config"]["entityid"]
+            frontend_metadata = defaultdict(list)
+            for frontend in frontend_modules:
+                if isinstance(frontend, SAMLMirrorFrontend) or isinstance(frontend, SAMLFrontend):
+                    logger.info("Creating SAML backend Mirror metadata for '{}' and frontend '{}'".format(backend.name, frontend.name))
+                    frontend.register_endpoints([backend.name])
+                    sps = frontend.idp.metadata.service_providers()
+                    for sp in sps:
+                        logger.info("Frontend metadata SP: %s" % sp)
+                        #frontend_entityid = frontend.config["idp_config"]["entityid"]
+                        #logger.info("IdP Entity Desc %s" % frontend_entityid)
+                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + md5hash(sp)
+                        logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
+                        backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
+                elif isinstance(frontend, OpenIDConnectFrontend):
+                    logger.info("Creating SAML backend Mirror metadata for '{}' and OIDC frontend '{}'".format(backend.name, frontend.name))
+                    frontend.register_endpoints([backend.name])
+                    for client_id, client in frontend.provider.clients.items():
+                        logger.info("OIDC client_id %s %s" % (client_id, client.get("client_name")))
+                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + md5hash(client_id)
+                        backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
+                        
+        elif isinstance(backend, SAMLBackend):
+            logger.info("Creating SAML backend '%s' metadata", backend.name)
+            logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
+            backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
+ 
     return backend_metadata
 
-
-def _create_mirrored_entity_config(frontend_instance, target_metadata_info, backend_name):
+def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, backend_name):
     def _merge_dicts(a, b):
         for key, value in b.items():
             if key in ["organization", "contact_person"]:
@@ -59,13 +95,14 @@ def _create_frontend_metadata(frontend_modules, backend_modules):
     for frontend in frontend_modules:
         if isinstance(frontend, SAMLMirrorFrontend):
             for backend in backend_modules:
-                logger.info("Creating metadata for frontend '%s' and backend '%s'".format(frontend.name, backend.name))
+                logger.info("Creating SAML Mirrored metadata for frontend '{}' and backend '{}'".format(frontend.name, backend.name))
                 meta_desc = backend.get_metadata_desc()
                 for desc in meta_desc:
                     entity_desc = _create_entity_descriptor(
-                        _create_mirrored_entity_config(frontend, desc.to_dict(), backend.name))
+                        _create_mirrored_idp_entity_config(frontend, desc.to_dict(), backend.name))
                     frontend_metadata[frontend.name].append(entity_desc)
         elif isinstance(frontend, SAMLFrontend):
+            logger.info("Creating SAML frontend '%s' metadata" % frontend.name)
             frontend.register_endpoints([backend.name for backend in backend_modules])
             entity_desc = _create_entity_descriptor(frontend.idp_config)
             frontend_metadata[frontend.name].append(entity_desc)
@@ -88,7 +125,7 @@ def create_entity_descriptors(satosa_config):
     logger.info("Loaded frontend plugins: {}".format([frontend.name for frontend in frontend_modules]))
     logger.info("Loaded backend plugins: {}".format([backend.name for backend in backend_modules]))
 
-    backend_metadata = _create_backend_metadata(backend_modules)
+    backend_metadata = _create_backend_metadata(backend_modules, frontend_modules)
     frontend_metadata = _create_frontend_metadata(frontend_modules, backend_modules)
 
     return frontend_metadata, backend_metadata

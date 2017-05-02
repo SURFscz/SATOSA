@@ -5,6 +5,7 @@ import copy
 import functools
 import json
 import logging
+from hashlib import md5
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from urllib.parse import urlparse
 
@@ -38,6 +39,7 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
     """
     KEY_DISCO_SRV = 'disco_srv'
     KEY_SP_CONFIG = 'sp_config'
+    KEY_ATTR_PROFILE = 'attribute_profile'
     VALUE_ACR_COMPARISON_DEFAULT = 'exact'
 
     def __init__(self, outgoing, internal_attributes, config, base_url, name):
@@ -66,6 +68,9 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         self.encryption_keys = []
         self.outstanding_queries = {}
         self.idp_blacklist_file = config.get('idp_blacklist_file', None)
+        self.config = config
+        self.attribute_profile = config.get(KEY_ATTR_PROFILE, "saml")
+        self.bindings = [BINDING_HTTP_REDIRECT, BINDING_HTTP_POST]
 
         sp_keypairs = sp_config.getattr('encryption_keypairs', '')
         sp_key_file = sp_config.getattr('key_file', '')
@@ -248,7 +253,8 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         state = context.state
 
         try:
-            entity_id = info["entityID"]
+            #entity_id = info["entityID"]
+            entity_id = info["eID"] # This is for fake discovery endpoint
         except KeyError as err:
             satosa_logging(logger, logging.DEBUG, "No IDP chosen for state", state, exc_info=True)
             raise SATOSAAuthenticationError(state, "No IDP chosen") from err
@@ -445,3 +451,34 @@ class SAMLInternalResponse(InternalResponse):
             _dict['name_id'] = None
 
         return _dict
+
+class SAMLMirrorBackend(SAMLBackend):
+    """
+    A saml2 backend module (acting as a SP) that gives out requesting SP dependant entityID in authnRequest.
+    """
+    def start_auth(self, context, internal_req):
+        """
+        See super class method satosa.backends.base.BackendModule#start_auth
+        :type context: satosa.context.Context
+        :type internal_req: satosa.internal_data.InternalRequest
+        :rtype: satosa.response.Response
+        """
+
+        satosa_logging(logger, logging.DEBUG, "Target Frontend: %s" % context.target_frontend, context.state)
+        satosa_logging(logger, logging.DEBUG, "SP entityid: %s" % internal_req.requester, context.state)
+        satosa_logging(logger, logging.DEBUG, "Internal SP: %s" % self.sp.config.entityid, context.state)
+
+        requester_hash = self._md5hash(internal_req.requester)
+        self.sp.config.entityid = self.config["sp_config"]["entityid"] + "/" + context.target_frontend + "/" + requester_hash
+
+        satosa_logging(logger, logging.DEBUG, "New Internal SP: %s" % self.sp.config.entityid, context.state)
+
+        return super().start_auth(context, internal_req)
+
+    def _md5hash(self, s):
+        """
+        Create short unique url-safe hash of string
+        """
+
+        md5hash = urlsafe_b64encode(md5(s.encode('utf-8')).digest()).decode('utf-8')
+        return md5hash

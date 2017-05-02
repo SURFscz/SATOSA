@@ -72,6 +72,8 @@ class OpenIDConnectFrontend(FrontendModule):
             "request_uri_parameter_supported": False,
             "scopes_supported": scopes_supported
         }
+        if any("code" in rts for rts in response_types_supported):
+            capabilities["token_endpoint"] = True
 
         if 'code' in response_types_supported:
             capabilities["token_endpoint"] = "{}/{}".format(endpoint_baseurl, TokenEndpoint.url)

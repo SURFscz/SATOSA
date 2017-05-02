@@ -1,4 +1,6 @@
 import os
+import logging
+import sys
 
 import click
 from saml2.config import Config
@@ -9,6 +11,7 @@ from ..metadata_creation.saml_metadata import create_signed_entities_descriptor
 from ..metadata_creation.saml_metadata import create_signed_entity_descriptor
 from ..satosa_config import SATOSAConfig
 
+logger = logging.getLogger(__name__)
 
 def _get_security_context(key, cert):
     conf = Config()
@@ -40,6 +43,16 @@ def create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_fron
     """
     Generates SAML metadata for the given PROXY_CONF, signed with the given KEY and associated CERT.
     """
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.DEBUG)
+
+    root_logger = logging.getLogger("")
+    root_logger.addHandler(stderr_handler)
+    root_logger.setLevel(logging.DEBUG)
+
+    logger.info("Test Logger")
+
     satosa_config = SATOSAConfig(proxy_conf)
     secc = _get_security_context(key, cert)
     frontend_entities, backend_entities = create_entity_descriptors(satosa_config)

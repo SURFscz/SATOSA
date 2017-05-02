@@ -67,17 +67,22 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
     KEY_CUSTOM_ATTR_RELEASE = 'custom_attribute_release'
     KEY_ENDPOINTS = 'endpoints'
     KEY_IDP_CONFIG = 'idp_config'
+    KEY_ACR_MAPPING = 'acr_mapping'
+    KEY_ATTR_PROFILE = 'attribute_profile'
 
     def __init__(self, auth_req_callback_func, internal_attributes, config, base_url, name):
         self._validate_config(config)
 
         super().__init__(auth_req_callback_func, internal_attributes, base_url, name)
+
         self.config = self.init_config(config)
 
         self.endpoints = config[self.KEY_ENDPOINTS]
         self.custom_attribute_release = config.get(
             self.KEY_CUSTOM_ATTR_RELEASE)
         self.idp = None
+        self.acr_mapping = conf.get(KEY_ACR_MAPPING)
+        self.attribute_profile = conf.get(KEY_ATTR_PROFILE, "saml")
 
     def handle_authn_response(self, context, internal_response):
         """
