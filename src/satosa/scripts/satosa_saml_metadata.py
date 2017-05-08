@@ -45,13 +45,11 @@ def create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_fron
     """
 
     stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.DEBUG)
+    stderr_handler.setLevel(logging.INFO)
 
     root_logger = logging.getLogger("")
     root_logger.addHandler(stderr_handler)
-    root_logger.setLevel(logging.DEBUG)
-
-    logger.info("Test Logger")
+    root_logger.setLevel(logging.INFO)
 
     satosa_config = SATOSAConfig(proxy_conf)
     secc = _get_security_context(key, cert)

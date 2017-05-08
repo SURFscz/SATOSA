@@ -5,7 +5,6 @@ import copy
 import functools
 import json
 import logging
-from hashlib import md5
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 from urllib.parse import urlparse
 
@@ -468,17 +467,17 @@ class SAMLMirrorBackend(SAMLBackend):
         satosa_logging(logger, logging.DEBUG, "SP entityid: %s" % internal_req.requester, context.state)
         satosa_logging(logger, logging.DEBUG, "Internal SP: %s" % self.sp.config.entityid, context.state)
 
-        requester_hash = self._md5hash(internal_req.requester)
-        self.sp.config.entityid = self.config["sp_config"]["entityid"] + "/" + context.target_frontend + "/" + requester_hash
+        requester_desc = self._urlenc(internal_req.requester)
+        self.sp.config.entityid = self.config["sp_config"]["entityid"] + "/" + context.target_frontend + "/" + requester_desc
 
         satosa_logging(logger, logging.DEBUG, "New Internal SP: %s" % self.sp.config.entityid, context.state)
 
         return super().start_auth(context, internal_req)
 
-    def _md5hash(self, s):
+    def _urlenc(self, s):
         """
         Create short unique url-safe hash of string
         """
 
-        md5hash = urlsafe_b64encode(md5(s.encode('utf-8')).digest()).decode('utf-8')
-        return md5hash
+        desc = urlsafe_b64encode(s.encode('utf-8').digest()).decode('utf-8')
+        return desc
