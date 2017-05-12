@@ -479,5 +479,5 @@ class SAMLMirrorBackend(SAMLBackend):
         Create short unique url-safe hash of string
         """
 
-        desc = urlsafe_b64encode(s.encode('utf-8').digest()).decode('utf-8')
+        desc = urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
         return desc
