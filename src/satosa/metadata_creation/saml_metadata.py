@@ -1,7 +1,6 @@
 import copy
 import logging
 from collections import defaultdict
-from hashlib import md5
 
 from saml2.config import Config
 from saml2.metadata import entity_descriptor, entities_descriptor, sign_entity_descriptor
