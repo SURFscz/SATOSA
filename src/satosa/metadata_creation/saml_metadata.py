@@ -20,9 +20,9 @@ from base64 import urlsafe_b64encode, urlsafe_b64decode
 
 logger = logging.getLogger(__name__)
 
-def md5hash(s):
-    md5hash = urlsafe_b64encode(md5(s.encode('utf-8')).digest()).decode('utf-8')
-    return md5hash
+def urlenc(s):
+    enc = urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
+    return enc
 
 def _create_entity_descriptor(entity_config):
     cnf = Config().load(copy.deepcopy(entity_config), metadata_construction=True)
@@ -66,7 +66,7 @@ def _create_backend_metadata(backend_modules, frontend_modules):
                     frontend.register_endpoints([backend.name])
                     for client_id, client in frontend.provider.clients.items():
                         logger.info("OIDC client_id %s %s" % (client_id, client.get("client_name")))
-                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + md5hash(client_id)
+                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + urlenc(client_id)
                         backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
                         
         elif isinstance(backend, SAMLBackend):

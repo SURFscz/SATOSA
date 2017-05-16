@@ -69,7 +69,7 @@ class DBAttributeStore(ResponseMicroService):
             if 'db_user' in config:
                 db_user = config['db_user']
             else:
-                bind_dn = self.config['bind_dn']
+                db_user = self.config['db_user']
 
             if 'db_table' in config:
                 db_table = config['db_table']
