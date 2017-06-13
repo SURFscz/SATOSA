@@ -42,7 +42,7 @@ def _create_mirrored_sp_entity_config(backend_instance, target_metadata_info, fr
 
     merged_conf = _merge_dicts(copy.deepcopy(backend_instance.config["sp_config"]), target_metadata_info)
     proxy_entity_id = backend_instance.config["sp_config"]["entityid"]
-    merged_conf["entityid"] = "{}/{}".format(proxy_entity_id, target_metadata_info["entityid"])
+    merged_conf["entityid"] = "{}/{}/{}".format(proxy_entity_id, frontend_name, target_metadata_info["entityid"])
     return merged_conf
 
 def _create_backend_metadata(backend_modules, frontend_modules):
@@ -93,7 +93,7 @@ def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, 
                                                               config=merged_conf)
 
     proxy_entity_id = frontend_instance.config["idp_config"]["entityid"]
-    full_config["entityid"] = "{}/{}".format(proxy_entity_id, target_metadata_info["entityid"])
+    full_config["entityid"] = "{}/{}/{}".format(proxy_entity_id, backend_name, target_metadata_info["entityid"])
     return full_config
 
 
