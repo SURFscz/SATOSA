@@ -81,16 +81,17 @@ class ComanageService(ResponseMicroService):
             co_services = r.json()['CoServices']
             satosa_logging(logger, logging.DEBUG, "{} co_services {}".format(logprefix, co_services), context.state)
 
-            services = {}
-            for co_service in co_services:
-                services[co_service['Name']] = co_service['CoId']
+            #services = {}
+            #for co_service in co_services:
+            #    services[co_service['Name']] = co_service
+            services = { co_service['Name']: co_service for co_service in co_services }
 
             satosa_logging(logger, logging.DEBUG, "{} services {}".format(logprefix, services), context.state)
 
-            if spEntityID in services:
-                co_id = services[spEntityID]
+            if spEntityID in services and services[spEntityID]['Status'] == "A":
+                co_id = services[spEntityID]['CoId']
             else:
-                return Response("No CO for entityID: {}".format(spEntityID))
+                return Response("No Active Service CO for entityID: {}".format(spEntityID))
 
             if 'eppn' in data.attributes:
                 eppn = data.attributes['eppn'][0]
@@ -103,12 +104,12 @@ class ComanageService(ResponseMicroService):
             
             satosa_logging(logger, logging.DEBUG, "{} request.json {}".format(logprefix, r.json()), context.state)
 
-            member = len(r.json()['CoPeople'])
+            member = len(r.json()['CoPeople']) and r.json()['CoPeople'][0]['Status'] == 'Active'
             if (member):
                 satosa_logging(logger, logging.DEBUG, "{} {} is member".format(logprefix, eppn), context.state)
             else:
-                satosa_logging(logger, logging.DEBUG, "{} {} is no member".format(logprefix, eppn), context.state)
-                return Response("eppn {} not member of CO service  {}". format(eppn, spEntityID))
+                satosa_logging(logger, logging.DEBUG, "{} {} is no active member".format(logprefix, eppn), context.state)
+                return Response("eppn {} not an active member of CO service  {}". format(eppn, spEntityID))
 
         except Exception as err:
             satosa_logging(logger, logging.ERROR, "{} Caught exception: {0}".format(logprefix, err), None)
