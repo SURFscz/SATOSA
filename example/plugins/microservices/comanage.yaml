@@ -1,0 +1,6 @@
+module: satosa.micro_services.comanage.ComanageService
+name: Comanage
+config:
+  comanage_url: 'https://portal.comanage/'
+  user: 'comanage-api'
+  password: '1234'
