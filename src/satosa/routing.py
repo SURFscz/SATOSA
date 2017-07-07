@@ -103,7 +103,9 @@ class ModuleRouter(object):
         return frontend
 
     def _find_registered_endpoint_for_module(self, module, context):
+        satosa_logging(logger, logging.DEBUG, "path: {}".format(context.path), context.state)
         for regex, spec in module["endpoints"]:
+            satosa_logging(logger, logging.DEBUG, "regex: {}".format(regex), context.state)
             match = re.search(regex, context.path)
             if match is not None:
                 msg = "Found registered endpoint: module name:'{name}', endpoint: {endpoint}".format(
