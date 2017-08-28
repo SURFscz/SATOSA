@@ -68,8 +68,7 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         self.outstanding_queries = {}
         self.idp_blacklist_file = config.get('idp_blacklist_file', None)
         self.config = config
-        self.attribute_profile = config.get(KEY_ATTR_PROFILE, "saml")
-        self.bindings = [BINDING_HTTP_REDIRECT, BINDING_HTTP_POST]
+        self.attribute_profile = config.get(self.KEY_ATTR_PROFILE, "saml")
 
         sp_keypairs = sp_config.getattr('encryption_keypairs', '')
         sp_key_file = sp_config.getattr('key_file', '')

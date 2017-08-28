@@ -84,8 +84,8 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
         self.custom_attribute_release = config.get(
             self.KEY_CUSTOM_ATTR_RELEASE)
         self.idp = None
-        self.acr_mapping = conf.get(KEY_ACR_MAPPING)
-        self.attribute_profile = conf.get(KEY_ATTR_PROFILE, "saml")
+        self.acr_mapping = config.get(self.KEY_ACR_MAPPING)
+        self.attribute_profile = config.get(self.KEY_ATTR_PROFILE, "saml")
 
     def handle_authn_response(self, context, internal_response):
         """
