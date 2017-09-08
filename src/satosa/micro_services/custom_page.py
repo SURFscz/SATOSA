@@ -7,15 +7,9 @@ from ..response import Response
 
 logger = logging.getLogger(__name__)
 
-error_html = '''<h1>Pas Op!</h1>
-<p>Foobar %s en daarom altijd je eten opeten!!</p>
-'''
-
-info_html = '''<h1>He Hoi!</h1>
-<p>Flappie %s en ga zo door!!</p>
-'''
-
 class CustomPage(RequestMicroService):
+
+    logprefix = "CUSTOM_PAGE_SERVICE:"
 
     def __init__(self, config, *args, **kwargs):
         """
@@ -23,19 +17,18 @@ class CustomPage(RequestMicroService):
         :param config: The SATOSA proxy config
         """
         super().__init__(*args, **kwargs)
+        #self.config = config
+        if 'pages' in config:
+            self.pages = config['pages']
 
     def register_endpoints(self):
-        logger.info("CustomPage register_endpoints")
-        map = []
-        map.append(["^error$", self._handle_error])
-        map.append(["^info$", self._handle_info])
-        return map
+        url_map = []
+        for page in self.pages:
+            url_map.append(["^%s$" % page, self._handle])
+        return url_map
     
-    def _handle_error(self, context):
-        logger.info("CustomPage _handle_error")
-        return Response(error_html % "flappie", "400 Oops")
-
-    def _handle_info(self, context):
-        logger.info("CustomPage _handle_info")
-        return Response(info_html % "foobar", "200 Mooi zo")
+    def _handle(self, context):
+        page = context._path
+        logger.info("{} _handle: {}".format(self.logprefix, page))
+        return Response(self.pages[page])
 

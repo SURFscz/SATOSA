@@ -1,2 +1,11 @@
 module: satosa.micro_services.custom_page.CustomPage
 name: CustomPage
+config:
+    pages:
+        error: >
+            <h1>Error</h1>
+            This is the error page<br />
+        info:  >
+            <h1>Info</h1>
+            This is the info page<br />
+
