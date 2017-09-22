@@ -1,0 +1,4 @@
+module: satosa.micro_services.metadata_server.MetadataServer
+name: MetadataServer
+config:
+    location: [ "md", "metadata" ] #md is URI, metadata is relative directory containing metadata
