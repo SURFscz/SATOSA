@@ -198,7 +198,7 @@ class AttributeMapper(object):
                 logger.debug("frontend attribute %s mapped from %s" % (external_attribute_name,
                                                                     internal_attribute_name))
 
-                if (attribute_profile and self.separator in external_attribute_name):
+                if (attribute_profile == 'openid' and self.separator in external_attribute_name):
                     nested_attribute_names = external_attribute_name.split(self.separator)
                     nested_dict = self._create_nested_attribute_value(nested_attribute_names[1:],
                                                                     internal_dict[internal_attribute_name])
