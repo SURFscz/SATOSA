@@ -192,17 +192,18 @@ class AttributeMapper(object):
                 continue
 
             external_attribute_names = self.from_internal_attributes[internal_attribute_name][attribute_profile]
-            # select the first attribute name
-            external_attribute_name = external_attribute_names[0]
-            logger.debug("frontend attribute %s mapped from %s" % (external_attribute_name,
-                                                                   internal_attribute_name))
 
-            if self.separator in external_attribute_name:
-                nested_attribute_names = external_attribute_name.split(self.separator)
-                nested_dict = self._create_nested_attribute_value(nested_attribute_names[1:],
-                                                                  internal_dict[internal_attribute_name])
-                external_dict[nested_attribute_names[0]] = nested_dict
-            else:
-                external_dict[external_attribute_name] = internal_dict[internal_attribute_name]
+            # loop through all possible attribute names instead of only first.
+            for external_attribute_name in external_attribute_names:
+                logger.debug("frontend attribute %s mapped from %s" % (external_attribute_name,
+                                                                    internal_attribute_name))
+
+                if (attribute_profile and self.separator in external_attribute_name):
+                    nested_attribute_names = external_attribute_name.split(self.separator)
+                    nested_dict = self._create_nested_attribute_value(nested_attribute_names[1:],
+                                                                    internal_dict[internal_attribute_name])
+                    external_dict[nested_attribute_names[0]] = nested_dict
+                else:
+                    external_dict[external_attribute_name] = internal_dict[internal_attribute_name]
 
         return external_dict
