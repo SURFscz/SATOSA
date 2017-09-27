@@ -265,7 +265,10 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
         if idp_policy:
             approved_attributes = self._get_approved_attributes(idp, idp_policy, internal_response.requester,
                                                                 context.state)
-            attributes = {k: v for k, v in internal_response.attributes.items() if k in approved_attributes}
+            if len(approved_attributes):
+                attributes = {k: v for k, v in internal_response.attributes.items() if k in approved_attributes}
+            else:
+                attributes = {k: v for k, v in internal_response.attributes.items()}
 
         return attributes
 

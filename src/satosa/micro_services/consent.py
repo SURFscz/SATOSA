@@ -141,7 +141,11 @@ class Consent(ResponseMicroService):
         return self._approve_new_consent(context, internal_response, id_hash)
 
     def _filter_attributes(self, attributes, filter):
-        return {k: v for k, v in attributes.items() if k in filter}
+        if len(filter):
+            attributes = {k: v for k, v in attributes.items() if k in filter}
+        else:
+            attributes = {k: v for k, v in attributes.items()}
+        return attributes
 
     def _get_consent_id(self, requester, user_id, filtered_attr):
         """
