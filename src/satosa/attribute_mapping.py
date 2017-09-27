@@ -145,7 +145,7 @@ class AttributeMapper(object):
 
         return internal_dict
 
-    def _get_nested_attribute_value(self, nested_key, data):
+    def _get_nested_attribute_value(self, nested_key, data, profile):
         if (profile == 'openid'):
             keys = nested_key.split(self.separator)
         else:
