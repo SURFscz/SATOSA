@@ -128,9 +128,9 @@ class DBAttributeStore(ResponseMicroService):
 
             # Prepare select statement
             query  = "SELECT p.`attributes` FROM `{}` p "
-            query += "JOIN `{}` ps ON p.id=ps.zone_person_id "
-            query += "JOIN `{}` z ON ps.zone_service_id=z.id "
-            query += "WHERE `uid` in (" + ",".join(['%s']*len(values)) + ") "
+            query += "JOIN `{}` ps ON p.`id`=ps.`zone_person_id` "
+            query += "JOIN `{}` z ON ps.`zone_service_id`=z.`id` "
+            query += "WHERE p.`uid` in (" + ",".join(['%s']*len(values)) + ") "
             query += "AND z.`metadata`=%s"
             query = query.format(self.PEOPLE_TABLE, self.PERSON_SERVICES_TABLE, self.SERVICES_TABLE)
 
