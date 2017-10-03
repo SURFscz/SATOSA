@@ -23,7 +23,8 @@ setup(
         "gunicorn",
         "Werkzeug",
         "click",
-        "pystache"
+        "pystache",
+        "mysqlclient"
     ],
     extras_require={
         "ldap": ["ldap3"]
