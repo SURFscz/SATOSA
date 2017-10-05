@@ -21,7 +21,7 @@ class CustomLoggingService(ResponseMicroService):
     def __init__(self, config, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
-        
+
     def process(self, context, data):
         logprefix = CustomLoggingService.logprefix
 
@@ -78,7 +78,6 @@ class CustomLoggingService(ResponseMicroService):
             log['idp'] = idpEntityID
             log['sp'] = spEntityID
             log['attr'] = { key: data.to_dict()['attr'].get(key) for key in attrs }
-            
             print(json.dumps(log), file=loghandle, end="\n")
 
         except Exception as err:

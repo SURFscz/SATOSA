@@ -157,10 +157,13 @@ class DBAttributeStore(ResponseMicroService):
         # Before using a found record, if any, to populate attributes
         # clear any attributes incoming to this microservice if so configured.
         if clear_input_attributes:
-            satosa_logging(logger, logging.DEBUG, "{} Clearing values for these input attributes: {}".format(logprefix, data.attributes), context.state)
-            data.attributes = {}
+            satosa_logging(logger, logging.DEBUG, "{} Clearing values from input attributes".format(logprefix), context.state)
 
-        data.attributes.update(return_values)
+        for k, v in return_values.items():
+            if k in data.attributes and not clear_input_attributes:
+                data.attributes[k] = data.attributes[k] + [v]
+            else:
+                data.attributes[k] = [v]
 
         satosa_logging(logger, logging.DEBUG, "{} returning data.attributes {}".format(logprefix, str(data.attributes)), context.state)
         return super().process(context, data)
