@@ -8,6 +8,7 @@ the record and assert them to the receiving SP.
 from .base import ResponseMicroService
 from satosa.logging_util import satosa_logging
 from base64 import urlsafe_b64encode, urlsafe_b64decode
+from ..attribute_mapping import AttributeMapper
 
 import json
 import copy
