@@ -27,13 +27,16 @@ class DBAttributeStore(ResponseMicroService):
     SERVICES_TABLE = "zone_services"
 
     logprefix = "DB_ATTRIBUTE_STORE:"
+    attribute_profile = 'saml'
 
-    def __init__(self, config, *args, **kwargs):
+    def __init__(self, config, internal_attributes, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.config = config
+        self.converter = AttributeMapper(internal_attributes)
 
     def process(self, context, data):
         logprefix = DBAttributeStore.logprefix
+        attribute_profile = DBAttributeStore.attribute_profile
 
         # Initialize the configuration to use as the default configuration
         # that is passed during initialization.
@@ -144,6 +147,7 @@ class DBAttributeStore(ResponseMicroService):
                 satosa_logging(logger, logging.DEBUG, "{} row: {}".format(logprefix, row), context.state)
                 return_values=json.loads(row[0])
 
+            return_values = self.converter.to_internal(self.attribute_profile, return_values)
             satosa_logging(logger, logging.DEBUG, "{} return_values: {}".format(logprefix, return_values), context.state)
 
         except Exception as err:
@@ -160,10 +164,12 @@ class DBAttributeStore(ResponseMicroService):
             satosa_logging(logger, logging.DEBUG, "{} Clearing values from input attributes".format(logprefix), context.state)
 
         for k, v in return_values.items():
+            if isinstance(v, str):
+                v = [v]
             if k in data.attributes and not clear_input_attributes:
-                data.attributes[k] = data.attributes[k] + [v]
+                data.attributes[k] = data.attributes[k] + v
             else:
-                data.attributes[k] = [v]
+                data.attributes[k] = v
 
         satosa_logging(logger, logging.DEBUG, "{} returning data.attributes {}".format(logprefix, str(data.attributes)), context.state)
         return super().process(context, data)
