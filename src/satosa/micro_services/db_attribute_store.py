@@ -130,25 +130,28 @@ class DBAttributeStore(ResponseMicroService):
 
             satosa_logging(logger, logging.DEBUG, "{} IdP asserted values for DB id: {}".format(logprefix, values), context.state)
 
-            # Prepare select statement
-            query  = "SELECT p.`attributes` FROM `{}` p "
-            query += "JOIN `{}` ps ON p.`id`=ps.`zone_person_id` "
-            query += "JOIN `{}` z ON ps.`zone_service_id`=z.`id` "
-            query += "WHERE p.`uid` in (" + ",".join(['%s']*len(values)) + ") "
-            query += "AND z.`metadata`=%s"
-            query = query.format(self.PEOPLE_TABLE, self.PERSON_SERVICES_TABLE, self.SERVICES_TABLE)
-
-            satosa_logging(logger, logging.DEBUG, "{} query: {}".format(logprefix, query), context.state)
-
-            # Execute prepared statement
-            cursor.execute(query, values + [spEntityID] )
-
             return_values = {}
-            for row in cursor.fetchall():
-                satosa_logging(logger, logging.DEBUG, "{} row: {}".format(logprefix, row), context.state)
-                return_values=json.loads(row[0])
 
-            return_values = self.converter.to_internal(self.attribute_profile, return_values)
+            if (len(values) > 0):
+                # Prepare select statement
+                query  = "SELECT p.`attributes` FROM `{}` p "
+                query += "JOIN `{}` ps ON p.`id`=ps.`zone_person_id` "
+                query += "JOIN `{}` z ON ps.`zone_service_id`=z.`id` "
+                query += "WHERE p.`uid` in (" + ",".join(['%s']*len(values)) + ") "
+                query += "AND z.`metadata`=%s"
+                query = query.format(self.PEOPLE_TABLE, self.PERSON_SERVICES_TABLE, self.SERVICES_TABLE)
+
+                satosa_logging(logger, logging.DEBUG, "{} query: {}".format(logprefix, query), context.state)
+
+                # Execute prepared statement
+                cursor.execute(query, values + [spEntityID] )
+
+                for row in cursor.fetchall():
+                    satosa_logging(logger, logging.DEBUG, "{} row: {}".format(logprefix, row), context.state)
+                    return_values=json.loads(row[0])
+
+                return_values = self.converter.to_internal(self.attribute_profile, return_values)
+
             satosa_logging(logger, logging.DEBUG, "{} return_values: {}".format(logprefix, return_values), context.state)
 
         except Exception as err:
