@@ -146,10 +146,10 @@ class DBAttributeStore(ResponseMicroService):
                 # Execute prepared statement
                 cursor.execute(query, values + [spEntityID] )
 
-                for row in cursor.fetchall():
-                    satosa_logging(logger, logging.DEBUG, "{} row: {}".format(logprefix, row), context.state)
-                    return_values=json.loads(row[0])
-
+                rows = cursor.fetchall();
+                if len(rows) > 1:
+                    satosa_logging(logger, logging.DEBUG, "{} too many CO's found ({})".format(logprefix, len(rows)), context.state)
+                return_values=json.loads(rows[0][0])
                 return_values = self.converter.to_internal(self.attribute_profile, return_values)
 
             satosa_logging(logger, logging.DEBUG, "{} return_values: {}".format(logprefix, return_values), context.state)
