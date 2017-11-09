@@ -49,8 +49,8 @@ def _create_backend_metadata(backend_modules, frontend_modules):
     backend_metadata = defaultdict(list)
 
     for backend in backend_modules:
-        backend_entityid = backend.config["sp_config"]["entityid"]
         if isinstance(backend, SAMLMirrorBackend):
+            backend_entityid = backend.config["sp_config"]["entityid"]
             frontend_metadata = defaultdict(list)
             for frontend in frontend_modules:
                 if isinstance(frontend, SAMLMirrorFrontend) or isinstance(frontend, SAMLFrontend):
@@ -67,12 +67,12 @@ def _create_backend_metadata(backend_modules, frontend_modules):
                         logger.info("OIDC client_id %s %s" % (client_id, client.get("client_name")))
                         backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + urlenc(client_id)
                         backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
-                        
+
         elif isinstance(backend, SAMLBackend):
             logger.info("Creating SAML backend '%s' metadata", backend.name)
             logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
             backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
- 
+
     return backend_metadata
 
 def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, backend_name):
