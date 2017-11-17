@@ -9,6 +9,7 @@ from saml2.validate import valid_instance
 
 from ..backends.saml2 import SAMLBackend
 from ..backends.saml2 import SAMLMirrorBackend
+from ..backends.openid_connect import OpenIDConnectBackend
 from ..frontends.saml2 import SAMLFrontend
 from ..frontends.saml2 import SAMLMirrorFrontend
 from ..frontends.openid_connect import OpenIDConnectFrontend
@@ -40,40 +41,11 @@ def _create_mirrored_sp_entity_config(backend_instance, target_metadata_info, fr
 
         return a
 
+    target_metadata_info["service"]["sp"] = target_metadata_info["service"].pop("idp")
     merged_conf = _merge_dicts(copy.deepcopy(backend_instance.config["sp_config"]), target_metadata_info)
     proxy_entity_id = backend_instance.config["sp_config"]["entityid"]
     merged_conf["entityid"] = "{}/{}/{}".format(proxy_entity_id, frontend_name, target_metadata_info["entityid"])
     return merged_conf
-
-def _create_backend_metadata(backend_modules, frontend_modules):
-    backend_metadata = defaultdict(list)
-
-    for backend in backend_modules:
-        if isinstance(backend, SAMLMirrorBackend):
-            backend_entityid = backend.config["sp_config"]["entityid"]
-            frontend_metadata = defaultdict(list)
-            for frontend in frontend_modules:
-                if isinstance(frontend, SAMLMirrorFrontend) or isinstance(frontend, SAMLFrontend):
-                    logger.info("Creating SAML backend Mirror metadata for '{}' and frontend '{}'".format(backend.name, frontend.name))
-                    frontend.register_endpoints([backend.name])
-                    meta_desc = frontend.get_metadata_desc()
-                    for desc in meta_desc:
-                        logger.info("Backend %s EntityID %s" % (backend.name, urlsafe_b64decode(desc.to_dict()["entityid"]).decode("utf-8")))
-                        backend_metadata[backend.name].append(_create_entity_descriptor(_create_mirrored_sp_entity_config(backend, desc.to_dict(), frontend.name)))
-                elif isinstance(frontend, OpenIDConnectFrontend):
-                    logger.info("Creating SAML backend Mirror metadata for '{}' and OIDC frontend '{}'".format(backend.name, frontend.name))
-                    frontend.register_endpoints([backend.name])
-                    for client_id, client in frontend.provider.clients.items():
-                        logger.info("OIDC client_id %s %s" % (client_id, client.get("client_name")))
-                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + urlenc(client_id)
-                        backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
-
-        elif isinstance(backend, SAMLBackend):
-            logger.info("Creating SAML backend '%s' metadata", backend.name)
-            logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
-            backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
-
-    return backend_metadata
 
 def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, backend_name):
     def _merge_dicts(a, b):
@@ -93,10 +65,39 @@ def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, 
                                                               config=merged_conf)
 
     proxy_entity_id = frontend_instance.config["idp_config"]["entityid"]
-    # Can not access backend_name in SamlMirroredFrontend when creating SAML Response
-    #full_config["entityid"] = "{}/{}/{}".format(proxy_entity_id, backend_name, target_metadata_info["entityid"])
-    full_config["entityid"] = "{}/{}".format(proxy_entity_id, target_metadata_info["entityid"])
+    full_config["entityid"] = "{}/{}/{}".format(proxy_entity_id, backend_name, target_metadata_info["entityid"])
     return full_config
+
+def _create_backend_metadata(backend_modules, frontend_modules):
+    backend_metadata = defaultdict(list)
+
+    for backend in backend_modules:
+        if isinstance(backend, SAMLMirrorBackend):
+            backend_entityid = backend.config["sp_config"]["entityid"]
+            frontend_metadata = defaultdict(list)
+            for frontend in frontend_modules:
+                if isinstance(frontend, SAMLFrontend):
+                    logger.info("Creating SAML backend Mirror metadata for '{}' and frontend '{}'".format(backend.name, frontend.name))
+                    frontend.register_endpoints([backend.name])
+                    meta_desc = frontend.get_metadata_desc()
+                    for desc in meta_desc:
+                        logger.info("Backend %s EntityID %s" % (backend.name, urlsafe_b64decode(desc.to_dict()["entityid"]).decode("utf-8")))
+                        mirrored_sp_entity_config = _create_mirrored_sp_entity_config(backend, desc.to_dict(), frontend.name)
+                        entity_desc = _create_entity_descriptor(mirrored_sp_entity_config)
+                        backend_metadata[backend.name].append(entity_desc)
+                elif isinstance(frontend, OpenIDConnectFrontend):
+                    logger.info("Creating SAML backend Mirror metadata for '{}' and OIDC frontend '{}'".format(backend.name, frontend.name))
+                    frontend.register_endpoints([backend.name])
+                    for client_id, client in frontend.provider.clients.items():
+                        logger.info("OIDC client_id %s %s" % (client_id, client.get("client_name")))
+                        backend.config["sp_config"]["entityid"] = backend_entityid + "/" + frontend.name + "/" + urlenc(client_id)
+                        backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
+        elif isinstance(backend, SAMLBackend):
+            logger.info("Creating SAML backend '%s' metadata", backend.name)
+            logger.info("Backend %s EntityID %s" % (backend.name, backend.config["sp_config"]["entityid"]))
+            backend_metadata[backend.name].append(_create_entity_descriptor(backend.config["sp_config"]))
+
+    return backend_metadata
 
 
 def _create_frontend_metadata(frontend_modules, backend_modules):
@@ -105,16 +106,19 @@ def _create_frontend_metadata(frontend_modules, backend_modules):
     for frontend in frontend_modules:
         if isinstance(frontend, SAMLMirrorFrontend):
             for backend in backend_modules:
-                logger.info("Creating SAML Mirrored metadata for frontend '{}' and backend '{}'".format(frontend.name, backend.name))
-                meta_desc = backend.get_metadata_desc()
-                for desc in meta_desc:
-                    entity_desc = _create_entity_descriptor(
-                        _create_mirrored_idp_entity_config(frontend, desc.to_dict(), backend.name))
-                    frontend_metadata[frontend.name].append(entity_desc)
+                if isinstance(backend, SAMLBackend):
+                    logger.info("Creating SAML Mirrored metadata for frontend '{}' and backend '{}'".format(frontend.name, backend.name))
+                    meta_desc = backend.get_metadata_desc()
+                    for desc in meta_desc:
+                        mirrored_idp_entity_config = _create_mirrored_idp_entity_config(frontend, desc.to_dict(), backend.name))
+                        entity_desc = _create_entity_descriptor(mirrored_idp_entity_config)
+                        frontend_metadata[frontend.name].append(entity_desc)
+                if isinstance(backend, OpenIDConnectBackend):
+                    pass
         elif isinstance(frontend, SAMLFrontend):
             logger.info("Creating SAML frontend '%s' metadata" % frontend.name)
             frontend.register_endpoints([backend.name for backend in backend_modules])
-            entity_desc = _create_entity_descriptor(frontend.idp_config)
+            entity_desc = _create_entity_descriptor(frontend.config["idp_config"])
             frontend_metadata[frontend.name].append(entity_desc)
 
     return frontend_metadata

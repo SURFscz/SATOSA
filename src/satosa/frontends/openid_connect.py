@@ -160,7 +160,6 @@ class OpenIDConnectFrontend(FrontendModule):
         :raise ValueError: if more than one backend is configured
         """
         backend_name = None
-        """
         if len(backend_names) != 1:
             # only supports one backend since there currently is no way to publish multiple authorization endpoints
             # in configuration information and there is no other standard way of authorization_endpoint discovery
@@ -169,9 +168,9 @@ class OpenIDConnectFrontend(FrontendModule):
             # in the authentication request
             logger.warn("More than one backend is configured, make sure to provide a custom routing micro service to "
                         "determine which backend should be used per request.")
-        else:
-            backend_name = backend_names[0]
-        """
+        #else:
+        #Blindly choose first backend_name
+        backend_name = backend_names[0]
 
         endpoint_baseurl = "{}/{}".format(self.base_url, self.name)
         self._create_provider(endpoint_baseurl)
@@ -179,17 +178,15 @@ class OpenIDConnectFrontend(FrontendModule):
         provider_config = ("^.well-known/openid-configuration$", self.provider_config)
         jwks_uri = ("^{}/jwks$".format(self.name), self.jwks)
 
-        url_map = [provider_config, jwks_uri]
-        for backend_name in backend_names:
-        #if backend_name:
+        if backend_name:
             # if there is only one backend, include its name in the path so the default routing can work
             auth_endpoint = "{}/{}/{}/{}".format(self.base_url, backend_name, self.name, AuthorizationEndpoint.url)
             self.provider.configuration_information["authorization_endpoint"] = auth_endpoint
             auth_path = urlparse(auth_endpoint).path.lstrip("/")
-        #else:
-        #    auth_path = "{}/{}".format(self.name, AuthorizationEndpoint.url)
-            authentication = ("^{}$".format(auth_path), self.handle_authn_request)
-            url_map.append(authentication)
+        else:
+            auth_path = "{}/{}".format(self.name, AuthorizationEndpoint.url)
+        authentication = ("^{}$".format(auth_path), self.handle_authn_request)
+        url_map = [provider_config, jwks_uri, authentication]
 
         if any("code" in v for v in self.provider.configuration_information["response_types_supported"]):
             self.provider.configuration_information["token_endpoint"] = "{}/{}".format(endpoint_baseurl,

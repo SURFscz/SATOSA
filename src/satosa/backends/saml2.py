@@ -192,6 +192,7 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
             self.outstanding_queries[req_id] = req
 
         context.state[self.name] = {"relay_state": relay_state}
+        context.state['target_backend'] = self.name
         return make_saml_response(binding, ht_args)
 
     def authn_response(self, context, binding):

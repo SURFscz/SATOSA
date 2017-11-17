@@ -591,7 +591,7 @@ class SAMLMirrorFrontend(SAMLFrontend):
         """
         # Change the idp entity id dynamically
         idp_config_file = copy.deepcopy(self.idp_config)
-        idp_config_file["entityid"] = "{}/{}".format(self.idp_config["entityid"], state[self.name]["target_entity_id"])
+        idp_config_file["entityid"] = "{}/{}/{}".format(self.idp_config["entityid"], state["target_backend"], state[self.name]["target_entity_id"])
         idp_config = IdPConfig().load(idp_config_file, metadata_construction=False)
         return Server(config=idp_config)
 
