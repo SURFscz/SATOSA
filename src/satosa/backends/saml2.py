@@ -253,7 +253,6 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
 
         try:
             entity_id = info["entityID"]
-            #entity_id = info["eID"] # This is for fake discovery endpoint
         except KeyError as err:
             satosa_logging(logger, logging.DEBUG, "No IDP chosen for state", state, exc_info=True)
             raise SATOSAAuthenticationError(state, "No IDP chosen") from err
