@@ -41,7 +41,8 @@ def _create_mirrored_sp_entity_config(backend_instance, target_metadata_info, fr
 
         return a
 
-    target_metadata_info["service"]["sp"] = target_metadata_info["service"].pop("idp")
+    if "service" in target_metadata_info:
+        target_metadata_info["service"]["sp"] = target_metadata_info["service"].pop("idp")
     merged_conf = _merge_dicts(copy.deepcopy(backend_instance.config["sp_config"]), target_metadata_info)
     proxy_entity_id = backend_instance.config["sp_config"]["entityid"]
     merged_conf["entityid"] = "{}/{}/{}".format(proxy_entity_id, frontend_name, target_metadata_info["entityid"])
