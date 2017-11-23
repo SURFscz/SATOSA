@@ -71,7 +71,7 @@ class Consent(ResponseMicroService):
         if consent_attributes is None:
             satosa_logging(logger, logging.INFO, "Consent was NOT given", context.state)
             # If consent was not given, then don't send any attributes
-            consent_attributes = []
+            consent_attributes = [None]
         else:
             satosa_logging(logger, logging.INFO, "Consent was given", context.state)
 

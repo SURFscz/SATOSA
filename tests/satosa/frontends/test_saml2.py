@@ -140,8 +140,10 @@ class TestSAMLFrontend:
         fakesp = FakeSP(SPConfig().load(sp_conf, metadata_construction=False))
         resp = fakesp.parse_authn_request_response(resp_dict["SAMLResponse"][0],
                                                    BINDING_HTTP_REDIRECT)
+
         for key in resp.ava:
-            assert USERS["testuser1"][key] == resp.ava[key]
+            if key in USERS["testuser1"]:
+                assert USERS["testuser1"][key] == resp.ava[key]
 
     def test_handle_authn_request_without_name_id_policy_default_to_name_id_format_from_metadata(
             self, context, idp_conf, sp_conf):
@@ -169,7 +171,8 @@ class TestSAMLFrontend:
         resp = fakesp.parse_authn_request_response(resp_dict["SAMLResponse"][0],
                                                    BINDING_HTTP_REDIRECT)
         for key in resp.ava:
-            assert USERS["testuser1"][key] == resp.ava[key]
+            if key in USERS["testuser1"]:
+                assert USERS["testuser1"][key] == resp.ava[key]
 
         assert samlfrontend.name not in context.state
 
@@ -316,7 +319,9 @@ class TestSAMLFrontend:
                                                 extra_config=dict(custom_attribute_release=custom_attributes))
 
         resp = self.get_auth_response(samlfrontend, context, internal_response, sp_conf, idp_metadata_str)
-        assert len(resp.ava.keys()) == 0
+        # If SP does not approve of any attributes, assume attribute filtering void and send all remaining
+        # See frontend/saml2.py:_filter_attributes
+        assert len(resp.ava.keys()) == 1
 
 
 class TestSAMLMirrorFrontend:
@@ -352,8 +357,9 @@ class TestSAMLMirrorFrontend:
     def test_load_idp_dynamic_entity_id(self, idp_conf):
         state = State()
         state[self.frontend.name] = {"target_entity_id": self.TARGET_ENTITY_ID}
+        state['target_backend'] = self.BACKEND
         idp = self.frontend._load_idp_dynamic_entity_id(state)
-        assert idp.config.entityid == "{}/{}".format(idp_conf["entityid"], self.TARGET_ENTITY_ID)
+        assert idp.config.entityid == "{}/{}/{}".format(idp_conf["entityid"], self.BACKEND, self.TARGET_ENTITY_ID)
 
 
 class TestSamlNameIdFormatToHashType:
