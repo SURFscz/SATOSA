@@ -6,6 +6,7 @@ from .base import ResponseMicroService
 from satosa.logging_util import satosa_logging
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 
+import datetime
 import json
 import copy
 import logging
@@ -73,7 +74,8 @@ class CustomLoggingService(ResponseMicroService):
             # This is where the logging magic happens
             log = {}
             log['router'] = context.state.state_dict['ROUTER']
-            log['timestamp'] = data.auth_info.timestamp
+            log['idp_timestamp'] = data.auth_info.timestamp
+            log['proxy_timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             log['sessionid'] = context.state.state_dict['SESSION_ID']
             log['idp'] = idpEntityID
             log['sp'] = spEntityID
