@@ -116,6 +116,7 @@ class AttributeMapper(object):
             elif attr_val:
                 result.append(attr_val)
 
+        result = list(set(result))
         return result
 
     def _render_attribute_template(self, template, data):
