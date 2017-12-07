@@ -19,6 +19,13 @@ def _get_security_context(key, cert):
     conf.cert_file = cert
     return security_context(conf)
 
+def _create_merged_module_entities_descriptors(entities, secc, valid):
+    output = []
+    for module_name, entity_descriptors in entities.items():
+        print("module: {}, entity_descriptors: {}".format(module_name, entity_descriptors))
+        output.append((create_signed_entities_descriptor(entity_descriptors, secc, valid), "{}.xml".format(module_name)))
+
+    return output
 
 def _create_split_entity_descriptors(entities, secc, valid):
     output = []
@@ -40,7 +47,7 @@ def _create_merged_entities_descriptors(entities, secc, valid, name):
 
 
 def create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_frontend_metadata=False,
-                                   split_backend_metadata=False):
+                                   split_backend_metadata=False, split_module=False):
     """
     Generates SAML metadata for the given PROXY_CONF, signed with the given KEY and associated CERT.
     """
@@ -58,12 +65,16 @@ def create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_fron
 
     output = []
     if frontend_entities:
-        if split_frontend_metadata:
+        if split_module:
+            output.extend(_create_merged_module_entities_descriptors(frontend_entities, secc, valid))
+        elif split_frontend_metadata:
             output.extend(_create_split_entity_descriptors(frontend_entities, secc, valid))
         else:
             output.extend(_create_merged_entities_descriptors(frontend_entities, secc, valid, "frontend.xml"))
     if backend_entities:
-        if split_backend_metadata:
+        if split_module:
+            output.extend(_create_merged_module_entities_descriptors(backend_entities, secc, valid))
+        elif split_backend_metadata:
             output.extend(_create_split_entity_descriptors(backend_entities, secc, valid))
         else:
             output.extend(_create_merged_entities_descriptors(backend_entities, secc, valid, "backend.xml"))
@@ -88,5 +99,7 @@ def create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_fron
               help="Create one entity descriptor per file for the frontend metadata")
 @click.option("--split-backend", is_flag=True, type=click.BOOL, default=False,
               help="Create one entity descriptor per file for the backend metadata")
-def construct_saml_metadata(proxy_conf, key, cert, dir, valid, split_frontend, split_backend):
-    create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_frontend, split_backend)
+@click.option("--split-module", is_flag=True, type=click.BOOL, default=False,
+              help="Create merged entities descriptor per module")
+def construct_saml_metadata(proxy_conf, key, cert, dir, valid, split_frontend, split_backend, split_module):
+    create_and_write_saml_metadata(proxy_conf, key, cert, dir, valid, split_frontend, split_backend, split_module)
