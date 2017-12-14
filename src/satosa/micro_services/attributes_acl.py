@@ -52,10 +52,10 @@ class AttributesAcl(ResponseMicroService):
 
         received_attributes = data.attributes.keys()
 
-        # Do the hard work
         satosa_logging(logger, logging.DEBUG, "{} attributes received: {}".format(logprefix, received_attributes), context.state)
         satosa_logging(logger, logging.DEBUG, "{} attributes required: {}".format(logprefix, required_attributes), context.state)
 
+        # Do the hard work
         if set(required_attributes) <= set(received_attributes):
             satosa_logging(logger, logging.DEBUG, "{} required attributes found, user may continue".format(logprefix), context.state)
         else:
