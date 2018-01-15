@@ -65,6 +65,7 @@ class RandSAcl(ResponseMicroService):
             satosa_logging(logger, logging.DEBUG, "{} R&S attribute set found, user may continue".format(logprefix), context.state)
         else:
             satosa_logging(logger, logging.DEBUG, "{} missing R&S attribute set, user may not continue".format(logprefix), context.state)
+            context.state['substitutions'] = { '%custom%': data.auth_info.issuer }
             return Redirect(access_denied)
 
         return super().process(context, data)

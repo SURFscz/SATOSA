@@ -29,7 +29,7 @@ class CustomAlias(RequestMicroService):
             logger.info("{} registering {} - {}".format(self.logprefix, endpoint, alias))
             url_map.append(["^%s/" % endpoint, self._handle])
         return url_map
-    
+
     def _handle(self, context):
         path = context._path
         endpoint = path.split("/")[0]
@@ -40,5 +40,10 @@ class CustomAlias(RequestMicroService):
             response = open(alias, 'r').read()
         except:
             response = "Not found"
+
+        for search, replace in context.state['substitutions'].items():
+            logger.info("search: {}, replace: {}".format(search, replace))
+            response = response.replace(search, replace)
+
         return Response(response)
 
