@@ -41,9 +41,10 @@ class CustomAlias(RequestMicroService):
         except:
             response = "Not found"
 
-        for search, replace in context.state['substitutions'].items():
-            logger.info("search: {}, replace: {}".format(search, replace))
-            response = response.replace(search, replace)
+        if 'substitutions' in context.state:
+            for search, replace in context.state['substitutions'].items():
+                logger.info("search: {}, replace: {}".format(search, replace))
+                response = response.replace(search, replace)
 
         return Response(response)
 
