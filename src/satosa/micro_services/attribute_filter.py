@@ -75,7 +75,7 @@ Note that attribute filters work on matched value only.
         # Remove Denies (values) from Allows (values)
         for a,v in deny.items():
             for r in v:
-                if r in allow[a]:
+                if a in allow and r in allow[a]:
                     allow[a].remove(r)
 
         result = { a: v for a, v in allow.items() if len(v) }
