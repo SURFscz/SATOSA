@@ -42,7 +42,9 @@ def _create_mirrored_sp_entity_config(backend_instance, target_metadata_info, fr
         return a
 
     if "service" in target_metadata_info:
-        target_metadata_info["service"]["sp"] = target_metadata_info["service"].pop("idp")
+        if not "sp" in target_metadata_info["service"]:
+            target_metadata_info["service"]["sp"] = dict()
+        target_metadata_info["service"]["sp"]["ui_info"] = target_metadata_info["service"].pop("ui_info")
     merged_conf = _merge_dicts(copy.deepcopy(backend_instance.config["sp_config"]), target_metadata_info)
     proxy_entity_id = backend_instance.config["sp_config"]["entityid"]
     merged_conf["entityid"] = "{}/{}/{}".format(proxy_entity_id, frontend_name, target_metadata_info["entityid"])
@@ -61,6 +63,10 @@ def _create_mirrored_idp_entity_config(frontend_instance, target_metadata_info, 
 
         return a
 
+    if "service" in target_metadata_info:
+        if not "idp" in target_metadata_info["service"]:
+            target_metadata_info["service"]["idp"] = dict()
+        target_metadata_info["service"]["idp"]["ui_info"] = target_metadata_info["service"].pop("ui_info")
     merged_conf = _merge_dicts(copy.deepcopy(frontend_instance.config["idp_config"]), target_metadata_info)
     full_config = frontend_instance._load_endpoints_to_config(backend_name, target_metadata_info["entityid"],
                                                               config=merged_conf)
