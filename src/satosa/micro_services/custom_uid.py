@@ -42,8 +42,9 @@ class CustomUID(ResponseMicroService):
         satosa_logging(logger, logging.DEBUG, "{} uid: {}".format(self.logprefix, uid), context.state)
 
         if uid:
-            #data.attributes[couid] = hashlib.sha1(uid.encode('utf-8')).hexdigest()
             data.attributes[couid] = [uid]
+            data.user_id = uid
+            context.state['IDHASHER']['hash_type'] = 'public'
 
         satosa_logging(logger, logging.DEBUG, "{} couid ({}): {}".format(self.logprefix, couid, data.attributes.get(couid)), context.state)
         return super().process(context, data)
