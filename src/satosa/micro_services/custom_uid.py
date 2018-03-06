@@ -44,7 +44,7 @@ class CustomUID(ResponseMicroService):
         if uid:
             data.attributes[couid] = [uid]
             data.user_id = uid
-            context.state['IDHASHER']['hash_type'] = 'public'
+            context.state['IDHASHER']['hash_type'] = 'persistent'
 
         satosa_logging(logger, logging.DEBUG, "{} couid ({}): {}".format(self.logprefix, couid, data.attributes.get(couid)), context.state)
         return super().process(context, data)
