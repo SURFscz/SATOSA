@@ -1,6 +1,7 @@
 from .base import ResponseMicroService
 from satosa.logging_util import satosa_logging
 
+from xml.etree import ElementTree as ET
 import logging
 import hashlib
 
@@ -37,8 +38,19 @@ class CustomUID(ResponseMicroService):
 
         satosa_logging(logger, logging.DEBUG, "{} select {}".format(self.logprefix, select), context.state)
 
+        d = { a: [] for a in select if a in data.attributes }
+        for a in d:
+            values = data.attributes.get(a)
+            for v in values:
+                try:
+                    v = ET.fromstring(v).text
+                except:
+                    pass
+                if v:
+                    d[a].append(v)
+
         # Do the magic
-        uid = '|'.join(['|'.join(data.attributes[v]) for v in select if v in data.attributes])
+        uid = '|'.join(['|'.join(d[a]) for a in select if a in d and len(d[a])])
         satosa_logging(logger, logging.DEBUG, "{} uid: {}".format(self.logprefix, uid), context.state)
 
         if uid:
