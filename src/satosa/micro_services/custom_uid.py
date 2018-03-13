@@ -27,10 +27,15 @@ class CustomUID(ResponseMicroService):
             else:
                 select = self.config['select']
 
-            if 'couid' in config:
-                couid = config['couid']
+            if 'custom_attribute' in config:
+                custom_attribute = config['custom_attribute']
             else:
-                couid = self.config['couid']
+                custom_attribute = self.config['custom_attribute']
+
+            if 'user_id' in config:
+                user_id = config['user_id']
+            else:
+                user_id = self.config['user_id']
 
         except KeyError as err:
             satosa_logging(logger, logging.ERROR, "{} Configuration '{}' is missing".format(logprefix, err), context.state)
@@ -54,9 +59,10 @@ class CustomUID(ResponseMicroService):
         satosa_logging(logger, logging.DEBUG, "{} uid: {}".format(self.logprefix, uid), context.state)
 
         if uid:
-            data.attributes[couid] = [uid]
-            data.user_id = uid
-            context.state['IDHASHER']['hash_type'] = 'persistent'
+            data.attributes[custom_attribute] = [uid]
+            if user_id:
+                data.user_id = uid
+                context.state['IDHASHER']['hash_type'] = 'persistent'
 
-        satosa_logging(logger, logging.DEBUG, "{} couid ({}): {}".format(self.logprefix, couid, data.attributes.get(couid)), context.state)
+        satosa_logging(logger, logging.DEBUG, "{} custom uid ({}): {}".format(self.logprefix, custom_attribute, data.attributes.get(custom_attribute)), context.state)
         return super().process(context, data)

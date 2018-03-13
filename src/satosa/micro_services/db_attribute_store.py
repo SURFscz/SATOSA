@@ -103,6 +103,11 @@ class DBAttributeStore(ResponseMicroService):
             else:
                 clear_input_attributes = False
 
+            if 'user_id' in config:
+                user_id = config['user_id']
+            else:
+                user_id = self.config['user_id']
+
         except KeyError as err:
             satosa_logging(logger, logging.ERROR, "{} Configuration '{}' is missing".format(logprefix, err), context.state)
             return super().process(context, data)
@@ -121,6 +126,8 @@ class DBAttributeStore(ResponseMicroService):
             satosa_logging(logger, logging.DEBUG, "{} Using IdP asserted attributes {}".format(logprefix, idp_identifiers), context.state)
 
             values = []
+            if user_id:
+                values += [data.user_id]
             for identifier in idp_identifiers:
                 if identifier in data.attributes:
                     satosa_logging(logger, logging.DEBUG, "{} IdP asserted {} values for attribute {}: {}".format(logprefix, len(data.attributes[identifier]),identifier, data.attributes[identifier]), context.state)
