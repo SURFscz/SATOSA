@@ -103,12 +103,12 @@ class AttributeCheck(ResponseMicroService):
             satosa_logging(logger, logging.DEBUG, "{} Using attributes {}".format(logprefix, attributes), context.state)
 
             def make_hashable(o):
-                if isinstance(o, (tuple, list)):
-                    return tuple((make_hashable(e) for e in o))
+                if isinstance(o, (tuple, list, set)):
+                    return tuple(sorted(make_hashable(e) for e in o))
                 if isinstance(o, dict):
                     return tuple(sorted((k,make_hashable(v)) for k,v in o.items()))
-                if isinstance(o, (set, frozenset)):
-                    return tuple(sorted(make_hashable(e) for e in o))
+                #if isinstance(o, (set, frozenset)):
+                #    return tuple(sorted(make_hashable(e) for e in o))
                 return o
 
             def make_hash_sha256(o):
