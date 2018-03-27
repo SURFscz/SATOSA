@@ -61,8 +61,6 @@ class CustomLoggingService(ResponseMicroService):
             satosa_logging(logger, logging.ERROR, "{} Configuration '{}' is missing".format(logprefix, err), context.state)
             return super().process(context, data)
 
-        record = None
-
         try:
             satosa_logging(logger, logging.DEBUG, "{} Using context {}".format(logprefix, context), context.state)
             satosa_logging(logger, logging.DEBUG, "{} Using data {}".format(logprefix, data.to_dict()), context.state)

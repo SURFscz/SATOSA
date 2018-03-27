@@ -36,6 +36,7 @@ class Consent(ResponseMicroService):
         self.name = "consent"
         self.api_url = config["api_url"]
         self.redirect_url = config["redirect_url"]
+        self.lock_attributes = config.get("lock_all_attributes", False)
         self.locked_attr = None
         if "user_id_to_attr" in internal_attributes:
             self.locked_attr = internal_attributes["user_id_to_attr"]
@@ -91,6 +92,8 @@ class Consent(ResponseMicroService):
             consent_args["locked_attrs"] = [self.locked_attr]
         if 'requester_logo' in context.state[STATE_KEY]:
              consent_args["requester_logo"] = context.state[STATE_KEY]['requester_logo']
+        if (self.lock_attributes):
+             consent_args["locked_attrs"] = list(internal_response.attributes.keys())
         try:
             ticket = self._consent_registration(consent_args)
         except (ConnectionError, UnexpectedResponseError) as e:

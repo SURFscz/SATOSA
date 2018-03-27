@@ -4,3 +4,4 @@ config:
   api_url: "https://127.0.0.1:8166"
   redirect_url: "https://localhost:8166/consent"
   sign_key: "pki/mykey.pem"
+  lock_all_attributes: True
