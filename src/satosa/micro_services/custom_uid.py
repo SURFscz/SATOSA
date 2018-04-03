@@ -19,10 +19,6 @@ class CustomUID(ResponseMicroService):
         config = self.config
         satosa_logging(logger, logging.DEBUG, "{} Using default configuration {}".format(self.logprefix, config), context.state)
 
-        name_id = data.name_id
-        satosa_logging(logger, logging.DEBUG, "{} Using name_id format {}".format(self.logprefix, name_id.format), context.state)
-        satosa_logging(logger, logging.DEBUG, "{} Using name_id text {}".format(self.logprefix, name_id.text), context.state)
-
         # Obtain configuration details from the per-SP configuration or the default configuration
         try:
             if 'select' in config:
@@ -46,19 +42,29 @@ class CustomUID(ResponseMicroService):
 
         satosa_logging(logger, logging.DEBUG, "{} select {}".format(self.logprefix, select), context.state)
 
+        name_id = data.name_id
+
+        # Prepare data dictionary
         d = { a: [] for a in select if a in data.attributes }
-        for a in d:
-            values = data.attributes.get(a)
-            for v in values:
-                try:
-                    v = ET.fromstring(v).text
-                except:
-                    pass
-                if v:
-                    d[a].append(v)
+
+        if '__name_id__' in select and name_id.format == "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent" and name_id.text:
+            satosa_logging(logger, logging.DEBUG, "{} Using name_id format {}".format(self.logprefix, name_id.format), context.state)
+            satosa_logging(logger, logging.DEBUG, "{} Using name_id text {}".format(self.logprefix, name_id.text), context.state)
+            d['__name_id__'] = [name_id.text]
+        else:
+            for a in d:
+                values = data.attributes.get(a)
+                for v in values:
+                    try:
+                        v = ET.fromstring(v).text
+                    except:
+                        pass
+                    if v:
+                        d[a].append(v)
 
         # Do the magic
         uid = '|'.join(['|'.join(d[a]) for a in select if a in d and len(d[a])])
+
         satosa_logging(logger, logging.DEBUG, "{} uid: {}".format(self.logprefix, uid), context.state)
 
         if uid:
