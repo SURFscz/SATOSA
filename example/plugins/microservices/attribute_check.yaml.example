@@ -1,7 +1,0 @@
-name: AttributeCheck
-config:
-  db_host: "localhost"
-  db_schema: "attributes_hash"
-  db_user: "example"
-  db_password: "changethispassword"
-  changed: "/static/changed"
