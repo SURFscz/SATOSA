@@ -24,7 +24,6 @@ setup(
         "Werkzeug",
         "click",
         "pystache",
-        "mysqlclient"
     ],
     extras_require={
         "ldap": ["ldap3"]
