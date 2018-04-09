@@ -8,7 +8,7 @@ from urllib.parse import urlencode, urlparse
 from jwkest.jwk import rsa_load, RSAKey
 from oic.oic import scope2claims
 from oic.oic.message import (AuthorizationRequest, AuthorizationErrorResponse, TokenErrorResponse,
-                             UserInfoErrorResponse)
+                             UserInfoErrorResponse, OpenIDSchema)
 from oic.oic.provider import RegistrationEndpoint, AuthorizationEndpoint, TokenEndpoint, UserinfoEndpoint
 from pyop.access_token import AccessToken
 from pyop.authz_state import AuthorizationState
@@ -127,7 +127,19 @@ class OpenIDConnectFrontend(FrontendModule):
 
         attributes = self.converter.from_internal("openid", internal_resp.attributes)
         #self.user_db[internal_resp.user_id] = {k: v[0] for k, v in attributes.items()}
-        self.user_db[internal_resp.user_id] = {k: v for k, v in attributes.items()}
+        #self.user_db[internal_resp.user_id] = {k: v for k, v in attributes.items()}
+        oidc_safe = {}
+        for key, value in attributes.items():
+            try:
+                (vtyp, req, _, _deser, null_allowed) = OpenIDSchema.c_param[key]
+            except KeyError:
+                oidc_safe[key] = value
+            else:
+                if isinstance(vtyp, list):
+                    oidc_safe[key] = value
+                else:
+                    oidc_safe[key] = value[0]
+        self.user_db[internal_resp.user_id] = oidc_safe
         auth_resp = self.provider.authorize(auth_req, internal_resp.user_id, extra_id_token_claims)
 
         del context.state[self.name]
