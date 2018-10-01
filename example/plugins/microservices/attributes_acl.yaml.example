@@ -1,7 +1,0 @@
-module: satosa.micro_services.attributes_acl.AttributesAcl
-name: AttributesAcl
-config:
-  required_attributes:
-    - uid
-    - eduPersonPrincipalName
-  access_denied: '/static/missing_attributes'
