@@ -5,14 +5,23 @@ import copy
 import functools
 import json
 import logging
+from base64 import urlsafe_b64decode
+from base64 import urlsafe_b64encode
+from urllib.parse import quote
+from urllib.parse import unquote
 from urllib.parse import urlparse
 from base64 import urlsafe_b64encode, urlsafe_b64decode
+from http.cookies import SimpleCookie
 
 from saml2 import SAMLError, xmldsig
 from saml2.config import IdPConfig
 from saml2.extension.ui import NAMESPACE as UI_NAMESPACE
 from saml2.metadata import create_metadata_string
-from saml2.saml import NameID, NAMEID_FORMAT_TRANSIENT, NAMEID_FORMAT_PERSISTENT
+from saml2.saml import NameID
+from saml2.saml import NAMEID_FORMAT_TRANSIENT
+from saml2.saml import NAMEID_FORMAT_PERSISTENT
+from saml2.saml import NAMEID_FORMAT_EMAILADDRESS
+from saml2.saml import NAMEID_FORMAT_UNSPECIFIED
 from saml2.samlp import name_id_policy_from_string
 from saml2.server import Server
 
@@ -41,10 +50,16 @@ def saml_name_id_format_to_hash_type(name_format):
     :param name_format: SAML2 name format
     :return: satosa format
     """
-    if name_format == NAMEID_FORMAT_PERSISTENT:
-        return UserIdHashType.persistent
+    name_id_format_to_hash_type = {
+        NAMEID_FORMAT_TRANSIENT:    UserIdHashType.transient,
+        NAMEID_FORMAT_PERSISTENT:   UserIdHashType.persistent,
+        NAMEID_FORMAT_EMAILADDRESS: UserIdHashType.emailaddress,
+        NAMEID_FORMAT_UNSPECIFIED:  UserIdHashType.unspecified,
+    }
 
-    return UserIdHashType.transient
+    return name_id_format_to_hash_type.get(
+            name_format,
+            UserIdHashType.transient)
 
 
 def hash_type_to_saml_name_id_format(hash_type):
@@ -56,11 +71,16 @@ def hash_type_to_saml_name_id_format(hash_type):
     :param hash_type: satosa format
     :return: pySAML2 name format
     """
-    if hash_type is UserIdHashType.transient:
-        return NAMEID_FORMAT_TRANSIENT
-    elif hash_type is UserIdHashType.persistent:
-        return NAMEID_FORMAT_PERSISTENT
-    return NAMEID_FORMAT_PERSISTENT
+    hash_type_to_name_id_format = {
+        UserIdHashType.transient:    NAMEID_FORMAT_TRANSIENT,
+        UserIdHashType.persistent:   NAMEID_FORMAT_PERSISTENT,
+        UserIdHashType.emailaddress: NAMEID_FORMAT_EMAILADDRESS,
+        UserIdHashType.unspecified:  NAMEID_FORMAT_UNSPECIFIED,
+    }
+
+    return hash_type_to_name_id_format.get(
+            hash_type,
+            NAMEID_FORMAT_PERSISTENT)
 
 
 class SAMLFrontend(FrontendModule, SAMLBaseModule):
@@ -207,6 +227,7 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
             satosa_logging(logger, logging.ERROR, "Could not find necessary info about entity: %s" % e, context.state)
             return ServiceError("Incorrect request from requester: %s" % e)
 
+        requester = resp_args["sp_entity_id"]
         context.state[self.name] = self._create_state_data(context, idp.response_args(authn_req),
                                                            context.request.get("RelayState"))
 
@@ -214,20 +235,19 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
             name_format = saml_name_id_format_to_hash_type(authn_req.name_id_policy.format)
         else:
             # default to name id format from metadata, or just transient name id
-            name_format_from_metadata = idp.metadata[resp_args["sp_entity_id"]]["spsso_descriptor"][0].get(
-                "name_id_format")
+            name_format_from_metadata = idp.metadata[requester]["spsso_descriptor"][0].get("name_id_format")
             if name_format_from_metadata:
                 name_format = saml_name_id_format_to_hash_type(name_format_from_metadata[0]["text"])
             else:
                 name_format = UserIdHashType.transient
 
-        requester_name = self._get_sp_display_name(idp, resp_args["sp_entity_id"])
-        internal_req = InternalRequest(name_format, resp_args["sp_entity_id"], requester_name)
+        requester_name = self._get_sp_display_name(idp, requester)
+        internal_req = InternalRequest(name_format, requester, requester_name)
 
         idp_policy = idp.config.getattr("policy", "idp")
         if idp_policy:
-            approved_attributes = self._get_approved_attributes(idp, idp_policy, internal_req.requester, context.state)
-            internal_req.approved_attributes = approved_attributes
+            internal_req.approved_attributes = self._get_approved_attributes(
+                    idp, idp_policy, requester, context.state)
 
         return self.auth_req_callback_func(context, internal_req)
 
@@ -262,6 +282,7 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
 
     def _filter_attributes(self, idp, internal_response, context,):
         idp_policy = idp.config.getattr("policy", "idp")
+        attributes = {}
         if idp_policy:
             approved_attributes = self._get_approved_attributes(idp, idp_policy, internal_response.requester,
                                                                 context.state)
@@ -368,6 +389,12 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
         http_args = idp.apply_binding(
             resp_args["binding"], str(resp), resp_args["destination"],
             request_state["relay_state"], response=True)
+
+        # Set the common domain cookie _saml_idp if so configured.
+        if 'common_domain_cookie' in self.config:
+            if self.config['common_domain_cookie']:
+                self._set_common_domain_cookie(internal_response, http_args, context)
+
         del context.state[self.name]
         return make_saml_response(resp_args["binding"], http_args)
 
@@ -435,6 +462,62 @@ class SAMLFrontend(FrontendModule, SAMLBaseModule):
                             self._metadata_endpoint))
 
         return url_map
+
+    def _set_common_domain_cookie(self, internal_response, http_args, context):
+        """
+        """
+        # Find any existing common domain cookie and deconsruct it to
+        # obtain the list of IdPs.
+        cookie = SimpleCookie(context.cookie)
+        if '_saml_idp' in cookie:
+            common_domain_cookie = cookie['_saml_idp']
+            satosa_logging(logger, logging.DEBUG, "Found existing common domain cookie {}".format(common_domain_cookie), context.state)
+            space_separated_b64_idp_string = unquote(common_domain_cookie.value)
+            b64_idp_list = space_separated_b64_idp_string.split()
+            idp_list = [urlsafe_b64decode(b64_idp).decode('utf-8') for b64_idp in b64_idp_list]
+        else:
+            satosa_logging(logger, logging.DEBUG, "No existing common domain cookie found", context.state)
+            idp_list = []
+
+        satosa_logging(logger, logging.DEBUG, "Common domain cookie list of IdPs is {}".format(idp_list), context.state)
+
+        # Identity the current IdP just used for authentication in this flow.
+        this_flow_idp = internal_response.to_dict()['auth_info']['issuer']
+
+        # Remove all occurrences of the current IdP from the list of IdPs.
+        idp_list = [idp for idp in idp_list if idp != this_flow_idp]
+
+        # Append the current IdP.
+        idp_list.append(this_flow_idp)
+        satosa_logging(logger, logging.DEBUG, "Added IdP {} to common domain cookie list of IdPs".format(this_flow_idp), context.state)
+        satosa_logging(logger, logging.DEBUG, "Common domain cookie list of IdPs is now {}".format(idp_list), context.state)
+
+        # Construct the cookie.
+        b64_idp_list = [urlsafe_b64encode(idp.encode()).decode("utf-8") for idp in idp_list]
+        space_separated_b64_idp_string = " ".join(b64_idp_list)
+        url_encoded_space_separated_b64_idp_string = quote(space_separated_b64_idp_string)
+
+        cookie = SimpleCookie()
+        cookie['_saml_idp'] = url_encoded_space_separated_b64_idp_string
+        cookie['_saml_idp']['path'] = '/'
+
+        # Use the domain from configuration if present else use the domain
+        # from the base URL for the front end.
+        domain = urlparse(self.base_url).netloc
+        if isinstance(self.config['common_domain_cookie'], dict):
+            if 'domain' in self.config['common_domain_cookie']:
+                domain = self.config['common_domain_cookie']['domain']
+
+        # Ensure that the domain begins with a '.'
+        if domain[0] != '.':
+            domain = '.' + domain
+
+        cookie['_saml_idp']['domain'] = domain
+        cookie['_saml_idp']['secure'] = True
+
+        # Set the cookie.
+        satosa_logging(logger, logging.DEBUG, "Setting common domain cookie with {}".format(cookie.output()), context.state)
+        http_args['headers'].append(tuple(cookie.output().split(": ", 1)))
 
     def _build_idp_config_endpoints(self, config, providers):
         """
@@ -573,8 +656,7 @@ class SAMLMirrorFrontend(SAMLFrontend):
         :param context:
         :return: An idp server
         """
-        target_entity_id = context.path.split("/")[1]
-        context.decorate(Context.KEY_MIRROR_TARGET_ENTITYID, target_entity_id)
+        target_entity_id = context.target_entity_id_from_path()
         idp_conf_file = self._load_endpoints_to_config(context.target_backend, target_entity_id)
         idp_config = IdPConfig().load(idp_conf_file, metadata_construction=False)
         return Server(config=idp_config)
@@ -604,6 +686,10 @@ class SAMLMirrorFrontend(SAMLFrontend):
         :type binding_in: str
         :rtype: satosa.response.Response
         """
+        target_entity_id = context.target_entity_id_from_path()
+        target_entity_id = urlsafe_b64decode(target_entity_id).decode()
+        context.decorate(Context.KEY_TARGET_ENTITYID, target_entity_id)
+
         idp = self._load_idp_dynamic_endpoints(context)
         return self._handle_authn_request(context, binding_in, idp)
 
@@ -618,7 +704,7 @@ class SAMLMirrorFrontend(SAMLFrontend):
         :rtype: dict[str, dict[str, str] | str]
         """
         state = super()._create_state_data(context, resp_args, relay_state)
-        state["target_entity_id"] = context.path.split("/")[1]
+        state["target_entity_id"] = context.target_entity_id_from_path()
         return state
 
     def handle_backend_error(self, exception):

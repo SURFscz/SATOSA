@@ -10,6 +10,8 @@ from unittest.mock import Mock, patch
 from urllib.parse import urlparse, parse_qs, parse_qsl
 
 import pytest
+
+import saml2
 from saml2 import BINDING_HTTP_REDIRECT
 from saml2.authn_context import PASSWORD
 from saml2.config import IdPConfig, SPConfig
@@ -144,9 +146,7 @@ class TestSAMLBackend:
     def test_start_auth_redirects_directly_to_mirrored_idp(
             self, context, idp_conf):
         entityid = idp_conf["entityid"]
-        entityid_bytes = entityid.encode("utf-8")
-        entityid_b64_str = urlsafe_b64encode(entityid_bytes).decode("utf-8")
-        context.decorate(Context.KEY_MIRROR_TARGET_ENTITYID, entityid_b64_str)
+        context.decorate(Context.KEY_TARGET_ENTITYID, entityid)
 
         resp = self.samlbackend.start_auth(context, InternalRequest(None, None))
         self.assert_redirect_to_idp(resp, idp_conf)
@@ -190,6 +190,42 @@ class TestSAMLBackend:
         context, internal_resp = self.samlbackend.auth_callback_func.call_args[0]
         self.assert_authn_response(internal_resp)
         assert self.samlbackend.name not in context.state
+
+    @pytest.mark.skipif(
+            saml2.__version__ < '4.6.1',
+            reason="Optional NameID needs pysaml2 v4.6.1 or higher")
+    def test_authn_response_no_name_id(self, context, idp_conf, sp_conf):
+        response_binding = BINDING_HTTP_REDIRECT
+
+        fakesp_conf = SPConfig().load(sp_conf, metadata_construction=False)
+        fakesp = FakeSP(fakesp_conf)
+
+        fakeidp_conf = IdPConfig().load(idp_conf, metadata_construction=False)
+        fakeidp = FakeIdP(USERS, config=fakeidp_conf)
+
+        destination, request_params = fakesp.make_auth_req(
+            idp_conf["entityid"])
+
+        # Use the fake IdP to mock up an authentication request that has no
+        # <NameID> element.
+        url, auth_resp = fakeidp.handle_auth_req_no_name_id(
+            request_params["SAMLRequest"],
+            request_params["RelayState"],
+            BINDING_HTTP_REDIRECT,
+            "testuser1",
+            response_binding=response_binding)
+
+        backend = self.samlbackend
+
+        context.request = auth_resp
+        context.state[backend.name] = {
+            "relay_state": request_params["RelayState"],
+        }
+        backend.authn_response(context, response_binding)
+
+        context, internal_resp = backend.auth_callback_func.call_args[0]
+        self.assert_authn_response(internal_resp)
+        assert backend.name not in context.state
 
     def test_authn_response_with_encrypted_assertion(self, sp_conf, context):
         with open(os.path.join(TEST_RESOURCE_BASE_PATH,

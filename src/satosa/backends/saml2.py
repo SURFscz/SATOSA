@@ -5,7 +5,7 @@ import copy
 import functools
 import json
 import logging
-from base64 import urlsafe_b64encode, urlsafe_b64decode
+from base64 import urlsafe_b64encode
 from urllib.parse import urlparse
 
 from saml2.client_base import Base
@@ -91,18 +91,18 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         :rtype: satosa.response.Response
         """
 
+        target_entity_id = context.get_decoration(Context.KEY_TARGET_ENTITYID)
+        if target_entity_id:
+            entity_id = target_entity_id
+            return self.authn_request(context, entity_id)
+
         # if there is only one IdP in the metadata, bypass the discovery service
         idps = self.sp.metadata.identity_providers()
         if len(idps) == 1 and "mdq" not in self.config["sp_config"]["metadata"]:
-            return self.authn_request(context, idps[0])
+            entity_id = idps[0]
+            return self.authn_request(context, entity_id)
 
-        entity_id = context.get_decoration(
-                Context.KEY_MIRROR_TARGET_ENTITYID)
-        if None is entity_id:
-            return self.disco_query()
-
-        entity_id = urlsafe_b64decode(entity_id).decode("utf-8")
-        return self.authn_request(context, entity_id)
+        return self.disco_query()
 
     def disco_query(self):
         """
@@ -269,7 +269,8 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         :return: A translated internal response
         """
 
-        # The response may have been encrypted by the IdP so if we have an encryption key, try it
+        # The response may have been encrypted by the IdP so if we have an
+        # encryption key, try it.
         if self.encryption_keys:
             response.parse_assertion(self.encryption_keys)
 
@@ -278,19 +279,23 @@ class SAMLBackend(BackendModule, SAMLBaseModule):
         timestamp = response.assertion.authn_statement[0].authn_instant
         issuer = response.response.issuer.text
 
-        auth_info = AuthenticationInformation(auth_class_ref, timestamp, issuer)
+        auth_info = AuthenticationInformation(auth_class_ref,
+                                              timestamp, issuer)
         internal_resp = SAMLInternalResponse(auth_info=auth_info)
 
-        internal_resp.user_id = response.get_subject().text
-        internal_resp.attributes = self.converter.to_internal(self.attribute_profile, response.ava)
-
-        # The SAML response may not include a NameID
+        # The SAML response may not include a NameID.
         try:
+            internal_resp.user_id = response.get_subject().text
             internal_resp.name_id = response.assertion.subject.name_id
         except AttributeError:
             pass
 
-        satosa_logging(logger, logging.DEBUG, "backend received attributes:\n%s" % json.dumps(response.ava, indent=4), state)
+        internal_resp.attributes = self.converter.to_internal(
+                self.attribute_profile, response.ava)
+
+        satosa_logging(logger, logging.DEBUG,
+                       "backend received attributes:\n%s" %
+                       json.dumps(response.ava, indent=4), state)
         return internal_resp
 
     def _metadata_endpoint(self, context):

@@ -132,12 +132,14 @@ class SATOSABase(object):
 
     def _auth_resp_finish(self, context, internal_response):
         # re-hash user id since e.g. account linking micro service might have changed it
-        user_id = UserIdHasher.hash_id(self.config["USER_ID_HASH_SALT"],
-                                       internal_response.user_id,
-                                       internal_response.requester,
-                                       context.state)
+        user_id = UserIdHasher.hash_id(
+            self.config["USER_ID_HASH_SALT"],
+            internal_response.user_id,
+            internal_response.requester,
+            context.state)
         internal_response.user_id = user_id
-        internal_response.user_id_hash_type = UserIdHasher.hash_type(context.state)
+        internal_response.user_id_hash_type = UserIdHasher.hash_type(
+            context.state)
         user_id_to_attr = self.config["INTERNAL_ATTRIBUTES"].get("user_id_to_attr", None)
         if user_id_to_attr:
             internal_response.attributes[user_id_to_attr] = [internal_response.user_id]
@@ -148,8 +150,10 @@ class SATOSABase(object):
         for attribute in hash_attributes:
             # hash all attribute values individually
             if attribute in internal_attributes:
-                hashed_values = [UserIdHasher.hash_data(self.config["USER_ID_HASH_SALT"], v)
-                             for v in internal_attributes[attribute]]
+                hashed_values = [
+                    UserIdHasher.hash_data(self.config["USER_ID_HASH_SALT"], v)
+                    for v in internal_attributes[attribute]
+                ]
                 internal_attributes[attribute] = hashed_values
 
         # remove all session state
@@ -160,7 +164,8 @@ class SATOSABase(object):
 
     def _auth_resp_callback_func(self, context, internal_response):
         """
-        This function is called by a backend module when the authorization is complete.
+        This function is called by a backend module when the authorization is
+        complete.
 
         :type context: satosa.context.Context
         :type internal_response: satosa.internal_data.InternalResponse
@@ -173,16 +178,32 @@ class SATOSABase(object):
 
         context.request = None
         internal_response.requester = context.state[STATE_KEY]["requester"]
+
+        # If configured construct the user id from attribute values.
         if "user_id_from_attrs" in self.config["INTERNAL_ATTRIBUTES"]:
-            user_id = ["".join(internal_response.attributes[attr]) for attr in
-                       self.config["INTERNAL_ATTRIBUTES"]["user_id_from_attrs"]]
+            user_id = [
+                "".join(internal_response.attributes[attr]) for attr in
+                self.config["INTERNAL_ATTRIBUTES"]["user_id_from_attrs"]
+            ]
             internal_response.user_id = "".join(user_id)
-        # Hash the user id
-        user_id = UserIdHasher.hash_data(self.config["USER_ID_HASH_SALT"], internal_response.user_id)
-        internal_response.user_id = user_id
+
+        # The authentication response may not contain a user id. For example
+        # a SAML IdP may not assert a SAML NameID in the subject and we may
+        # not be configured to construct one from asserted attributes.
+        # So only hash the user_id if it is not None.
+        if internal_response.user_id:
+            user_id = UserIdHasher.hash_id(
+                self.config["USER_ID_HASH_SALT"],
+                internal_response.user_id,
+                internal_response.requester,
+                context.state)
+            internal_response.user_id = user_id
+            internal_response.user_id_hash_type = UserIdHasher.hash_type(
+                context.state)
 
         if self.response_micro_services:
-            return self.response_micro_services[0].process(context, internal_response)
+            return self.response_micro_services[0].process(
+                context, internal_response)
 
         return self._auth_resp_finish(context, internal_response)
 
@@ -225,17 +246,23 @@ class SATOSABase(object):
 
     def _load_state(self, context):
         """
-        Load a state to the context
+        Load state from cookie to the context
 
         :type context: satosa.context.Context
         :param context: Session context
         """
         try:
-            state = cookie_to_state(context.cookie, self.config["COOKIE_STATE_NAME"],
-                                    self.config["STATE_ENCRYPTION_KEY"])
-        except SATOSAStateError:
+            state = cookie_to_state(
+                    context.cookie,
+                    self.config["COOKIE_STATE_NAME"],
+                    self.config["STATE_ENCRYPTION_KEY"])
+        except SATOSAStateError as e:
+            msg_tmpl = 'Failed to decrypt state {state} with {error}'
+            msg = msg_tmpl.format(state=context.cookie, error=str(e))
+            satosa_logging(logger, logging.WARNING, msg, None)
             state = State()
-        context.state = state
+        finally:
+            context.state = state
 
     def _save_state(self, resp, context):
         """
