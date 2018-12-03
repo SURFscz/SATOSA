@@ -259,7 +259,7 @@ class SATOSABase(object):
         except SATOSAStateError as e:
             msg_tmpl = 'Failed to decrypt state {state} with {error}'
             msg = msg_tmpl.format(state=context.cookie, error=str(e))
-            satosa_logging(logger, logging.WARNING, msg, None)
+            #satosa_logging(logger, logging.WARNING, msg, None)
             state = State()
         finally:
             context.state = state
