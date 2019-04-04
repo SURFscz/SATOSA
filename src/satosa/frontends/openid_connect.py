@@ -133,7 +133,10 @@ class OpenIDConnectFrontend(FrontendModule):
             try:
                 (vtyp, req, _, _deser, null_allowed) = OpenIDSchema.c_param[key]
             except KeyError:
-                oidc_safe[key] = value
+                if len(value) > 1:
+                    oidc_safe[key] = value
+                else:
+                    oidc_safe[key] = value[0]
             else:
                 if isinstance(vtyp, list):
                     oidc_safe[key] = value
