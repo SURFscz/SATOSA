@@ -138,7 +138,7 @@ class OpenIDConnectFrontend(FrontendModule):
                 else:
                     oidc_safe[key] = value[0]
             else:
-                if isinstance(vtyp, list):
+                if not isinstance(vtyp, str):
                     oidc_safe[key] = value
                 else:
                     oidc_safe[key] = value[0]
